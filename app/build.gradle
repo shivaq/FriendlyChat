@@ -37,6 +37,7 @@ dependencies {
 
     compile 'com.android.support:design:24.2.0'
     compile 'com.android.support:appcompat-v7:24.2.0'
+    compile 'com.jakewharton.timber:timber:4.5.1'
 
     // Displaying images
     compile 'com.github.bumptech.glide:glide:3.6.1'
