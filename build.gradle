@@ -25,3 +25,11 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+ext{
+    // android support libraries
+    supportLibraryVersion = '25.2.0'
+    // butterknife
+    butterKnifeVersion = '8.5.1'
+    // logger
+    timberVersion = '4.5.1'
+}
