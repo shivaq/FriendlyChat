@@ -30,6 +30,8 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import com.google.firebase.udacity.friendlychat.model.FriendlyMessage;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -80,6 +82,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Enable Send button when there's text to send
+        // EditTextにListener。入力されると Send ボタンの有効化条件分岐
         mMessageEditText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
