@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import butterknife.ButterKnife;
+import butterknife.OnClick;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -115,18 +116,19 @@ public class MainActivity extends AppCompatActivity {
             public void afterTextChanged(Editable editable) {
             }
         });
+
         mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(DEFAULT_MSG_LENGTH_LIMIT)});
 
-        // Send button sends a message and clears the EditText
-        mSendButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // TODO: Send messages on click
-
-                // Clear input box
-                mMessageEditText.setText("");
-            }
-        });
+//        // Send button sends a message and clears the EditText
+//        mSendButton.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                // TODO: Send messages on click
+//
+//                // Clear input box
+//                mMessageEditText.setText("");
+//            }
+//        });
     }
 
     @Override
@@ -140,4 +142,20 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         return super.onOptionsItemSelected(item);
     }
+
+    // TODO:鮮度クリック →メッセージをクラウドへ
+    // Send button sends a message and clears the EditText
+    @OnClick(R.id.sendButton)
+    void onSendClicked(){
+
+        // Model のデータをEditText から取得
+        FriendlyMessage friendlyMessage =
+                new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null);
+
+        // Clear input box
+        mMessageEditText.setText("");
+        // RemoteDB にデータをプッシュ
+        mMessagesDatabaseReference.push().setValue(friendlyMessage);
+    }
+
 }
