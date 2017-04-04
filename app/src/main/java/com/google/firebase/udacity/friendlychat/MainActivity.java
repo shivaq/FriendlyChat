@@ -30,6 +30,9 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.udacity.friendlychat.model.FriendlyMessage;
@@ -57,8 +60,8 @@ public class MainActivity extends AppCompatActivity {
     private String mUsername;
 
     private FirebaseDatabase mFirebaseDatabase;
-
     private DatabaseReference mMessagesDatabaseReference;
+    private ChildEventListener mChildEventListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,16 +122,39 @@ public class MainActivity extends AppCompatActivity {
 
         mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(DEFAULT_MSG_LENGTH_LIMIT)});
 
-//        // Send button sends a message and clears the EditText
-//        mSendButton.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                // TODO: Send messages on click
-//
-//                // Clear input box
-//                mMessageEditText.setText("");
-//            }
-//        });
+        // RealtimeDB の変更に対するイベントリスナをセット
+        mChildEventListener = new ChildEventListener() {
+
+            @Override
+            // コンテンツが新規追加された時
+            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                // DataSnapshot から値を取得// deserialize される
+                FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
+                mMessageAdapter.add(friendlyMessage);
+            }
+            // DataSnapshot →Firebase のデータ及び、いつどの位置に
+
+            @Override
+            // 既存のコンテンツが変更された時
+            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+            }
+
+            @Override
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+            }
+
+            @Override
+            // リスト上のポジションが変更された時
+            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+            }
+
+            @Override
+            // 変更を試みてエラーが返された時など// read権限なしで読み込み試行時など
+            public void onCancelled(DatabaseError databaseError) {
+            }
+        };
+        // ChildListenerを追加
+        mMessagesDatabaseReference.addChildEventListener(mChildEventListener);
     }
 
     @Override
@@ -143,7 +169,6 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    // TODO:鮮度クリック →メッセージをクラウドへ
     // Send button sends a message and clears the EditText
     @OnClick(R.id.sendButton)
     void onSendClicked(){
