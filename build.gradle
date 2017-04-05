@@ -6,7 +6,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.0'
+        classpath 'com.android.tools.build:gradle:2.3.1'
         // for firebase
         classpath 'com.google.gms:google-services:3.0.0'
 
@@ -19,6 +19,8 @@ allprojects {
     repositories {
         jcenter()
         mavenLocal()
+        // for firebase auth
+        maven { url 'https://maven.fabric.io/public' }
     }
 }
 
@@ -27,7 +29,7 @@ task clean(type: Delete) {
 }
 ext{
     // android support libraries
-    supportLibraryVersion = '25.2.0'
+    supportLibraryVersion = '25.1.0'
     // butterknife
     butterKnifeVersion = '8.5.1'
     // logger
