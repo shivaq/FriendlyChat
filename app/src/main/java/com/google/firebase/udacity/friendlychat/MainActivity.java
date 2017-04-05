@@ -30,7 +30,6 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
-import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
 import com.google.firebase.auth.FirebaseAuth;
@@ -48,6 +47,7 @@ import java.util.List;
 
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+import timber.log.Timber;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -133,40 +133,6 @@ public class MainActivity extends AppCompatActivity {
 
         mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(DEFAULT_MSG_LENGTH_LIMIT)});
 
-        // RealtimeDB の変更に対するイベントリスナをセット
-        mChildEventListener = new ChildEventListener() {
-
-            @Override
-            // コンテンツが新規追加された時
-            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                // DataSnapshot から値を取得// deserialize される
-                FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
-                mMessageAdapter.add(friendlyMessage);
-            }
-            // DataSnapshot →Firebase のデータ及び、いつどの位置に
-
-            @Override
-            // 既存のコンテンツが変更された時
-            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-            }
-
-            @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {
-            }
-
-            @Override
-            // リスト上のポジションが変更された時
-            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-            }
-
-            @Override
-            // 変更を試みてエラーが返された時など// read権限なしで読み込み試行時など
-            public void onCancelled(DatabaseError databaseError) {
-            }
-        };
-        // ChildListenerを追加
-        mMessagesDatabaseReference.addChildEventListener(mChildEventListener);
-
         // AuthStateListener を定義// 二つの状態 サインイン/サインアウト をリッスン
         mAuthStateListener = new FirebaseAuth.AuthStateListener() {
             @Override
@@ -174,9 +140,10 @@ public class MainActivity extends AppCompatActivity {
                 FirebaseUser user = firebaseAuth.getCurrentUser();
                 if (user != null) {
                     // User is singed in
-                    Toast.makeText(MainActivity.this, "認証完了。ようこそ、FriendlyChatへ・・・", Toast.LENGTH_SHORT).show();
+                    onSignedInInitialize(user.getDisplayName());
                 } else {
                     // User is signed out
+                    onSignedOutCleanup();
                     // ログイン Activity は AuthUI が生成する。
                     // https://github.com/firebase/FirebaseUI-Android/blob/master/auth/README.md#sign-in-examples
                     startActivityForResult(
@@ -197,6 +164,7 @@ public class MainActivity extends AppCompatActivity {
         };
     }
 
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -209,6 +177,67 @@ public class MainActivity extends AppCompatActivity {
         // 特に複数の Activity を扱う場合は、Listener のアタッチデタッチは重要
         if (mAuthStateListener != null) {
             mFirebaseAuth.removeAuthStateListener(mAuthStateListener);
+            mMessageAdapter.clear();
+            detachDatabaseReadListener();
+        }
+    }
+
+    // サインインが完了したら
+    private void onSignedInInitialize(String userName) {
+        mUsername = userName;
+        attatchDatabaseReadListener();
+    }
+
+    private void onSignedOutCleanup() {
+        mUsername = ANONYMOUS;
+        mMessageAdapter.clear();
+        detachDatabaseReadListener();
+    }
+
+    private void attatchDatabaseReadListener() {
+        // Listener のアタッチデタッチが重複しないよう確認
+        if(mChildEventListener == null){
+            // RealtimeDB の変更に対するイベントリスナをセット
+            mChildEventListener = new ChildEventListener() {
+
+                @Override
+                // コンテンツが新規追加された時
+                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                    // DataSnapshot から値を取得// deserialize される
+                    FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
+                    mMessageAdapter.add(friendlyMessage);
+                }
+                // DataSnapshot →Firebase のデータ及び、いつどの位置に
+
+                @Override
+                // 既存のコンテンツが変更された時
+                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                }
+
+                @Override
+                public void onChildRemoved(DataSnapshot dataSnapshot) {
+                }
+
+                @Override
+                // リスト上のポジションが変更された時
+                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+                }
+
+                @Override
+                // 変更を試みてエラーが返された時など// read権限なしで読み込み試行時など
+                public void onCancelled(DatabaseError databaseError) {
+                }
+            };
+            // ChildListenerを追加
+            mMessagesDatabaseReference.addChildEventListener(mChildEventListener);
+        }
+    }
+
+
+    private void detachDatabaseReadListener() {
+        if(mChildEventListener != null){
+            mMessagesDatabaseReference.removeEventListener(mChildEventListener);
+            mChildEventListener = null;
         }
     }
 
@@ -232,6 +261,7 @@ public class MainActivity extends AppCompatActivity {
         FriendlyMessage friendlyMessage =
                 new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null);
 
+        Timber.d("MainActivity:onSendClicked: user %s'sfriendlyMessage is %s", mUsername, friendlyMessage.toString());
         // Clear input box
         mMessageEditText.setText("");
         // RemoteDB にデータをプッシュ
