@@ -16,6 +16,7 @@
 package com.google.firebase.udacity.friendlychat;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -32,6 +33,7 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
@@ -39,6 +41,9 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 import com.google.firebase.udacity.friendlychat.model.FriendlyMessage;
 
 import java.util.ArrayList;
@@ -70,6 +75,8 @@ public class MainActivity extends AppCompatActivity {
     private ChildEventListener mChildEventListener;
     private FirebaseAuth mFirebaseAuth;
     private FirebaseAuth.AuthStateListener mAuthStateListener;
+    private FirebaseStorage mFirebaseStorage;
+    private StorageReference mChatPhotoStorageReference;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,8 +90,11 @@ public class MainActivity extends AppCompatActivity {
         mFirebaseDatabase = FirebaseDatabase.getInstance();
         // 認証Service用インスタンス取得
         mFirebaseAuth = FirebaseAuth.getInstance();
+        mFirebaseStorage = FirebaseStorage.getInstance();
+
         // DB の特定のパートにアクセスするためのもの
         mMessagesDatabaseReference = mFirebaseDatabase.getReference().child("messages");
+        mChatPhotoStorageReference = mFirebaseStorage.getReference().child("chat_photo");
 
         // Initialize references to views
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
@@ -166,11 +176,33 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == RESULT_OK) {
                 // Sign-in succeeded, set up the UI
                 Toast.makeText(this, "Signed in!", Toast.LENGTH_SHORT).show();
-            } else if(resultCode == RESULT_CANCELED){
+            } else if (resultCode == RESULT_CANCELED) {
                 // Sign-in was canceled by the user, finish the activity
                 Toast.makeText(this, "Sign in canceled", Toast.LENGTH_SHORT).show();
                 finish();
             }
+        } else if (requestCode == RC_PHOTO_PICKER && resultCode == RESULT_OK) {
+            // pick した画像の URI を取得
+            Uri selectedImageUri = data.getData();
+            Timber.d("MainActivity:onActivityResult: selectedImageUri is ", selectedImageUri);
+            // chat_photos/<FILENAME> への参照を取得
+            StorageReference photoRef =
+                    mChatPhotoStorageReference.child(selectedImageUri.getLastPathSegment());
+
+            // Firebase Storage にファイルをアップロード
+            photoRef.putFile(selectedImageUri)
+                    .addOnSuccessListener(this, new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                        @Override
+                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                            // アップロード成功 →DL URL を取得
+                            Uri downloadUrl = taskSnapshot.getDownloadUrl();
+
+                            // ユーザーがDB に送付できるように、DL URL をメッセージボックスにセット
+                            FriendlyMessage friendlyMessage = new FriendlyMessage(
+                                    null, mUsername, downloadUrl.toString());
+                            mMessagesDatabaseReference.push().setValue(friendlyMessage);
+                        }
+                    });
         }
     }
 
@@ -205,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void attatchDatabaseReadListener() {
         // Listener のアタッチデタッチが重複しないよう確認
-        if(mChildEventListener == null){
+        if (mChildEventListener == null) {
             // RealtimeDB の変更に対するイベントリスナをセット
             mChildEventListener = new ChildEventListener() {
 
@@ -244,7 +276,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void detachDatabaseReadListener() {
-        if(mChildEventListener != null){
+        if (mChildEventListener != null) {
             mMessagesDatabaseReference.removeEventListener(mChildEventListener);
             mChildEventListener = null;
         }
@@ -259,7 +291,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch(item.getItemId()){
+        switch (item.getItemId()) {
             case R.id.sign_out_menu:
                 // サインアウト用メソッド
                 AuthUI.getInstance().signOut(this);
@@ -286,12 +318,12 @@ public class MainActivity extends AppCompatActivity {
 
     // shows an image picker to upload a image for a message
     @OnClick(R.id.photoPickerButton)
-    void onPickPhotoClicked(){
+    void onPickPhotoClicked() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("image/jpeg");
+        // set multiple mime types
+        intent.setType("image/*");
         intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
         startActivityForResult(Intent.createChooser(intent, "Complete action using"),
                 RC_PHOTO_PICKER);
     }
-
 }
