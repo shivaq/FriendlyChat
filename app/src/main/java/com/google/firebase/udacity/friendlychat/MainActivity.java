@@ -16,6 +16,7 @@
 package com.google.firebase.udacity.friendlychat;
 
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.InputFilter;
@@ -29,7 +30,11 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
+import com.firebase.ui.auth.AuthUI;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -38,6 +43,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.udacity.friendlychat.model.FriendlyMessage;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import butterknife.ButterKnife;
@@ -49,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String ANONYMOUS = "anonymous";
     public static final int DEFAULT_MSG_LENGTH_LIMIT = 1000;
+    public static final int RC_SIGN_IN = 1;
 
     private ListView mMessageListView;
     private MessageAdapter mMessageAdapter;
@@ -62,6 +69,8 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseDatabase mFirebaseDatabase;
     private DatabaseReference mMessagesDatabaseReference;
     private ChildEventListener mChildEventListener;
+    private FirebaseAuth mFirebaseAuth;
+    private FirebaseAuth.AuthStateListener mAuthStateListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
 
         // DB アクセスのためのエントリーポイント
         mFirebaseDatabase = FirebaseDatabase.getInstance();
+        // 認証Service用インスタンス取得
+        mFirebaseAuth = FirebaseAuth.getInstance();
         // DB の特定のパートにアクセスするためのもの
         mMessagesDatabaseReference = mFirebaseDatabase.getReference().child("messages");
 
@@ -155,6 +166,50 @@ public class MainActivity extends AppCompatActivity {
         };
         // ChildListenerを追加
         mMessagesDatabaseReference.addChildEventListener(mChildEventListener);
+
+        // AuthStateListener を定義// 二つの状態 サインイン/サインアウト をリッスン
+        mAuthStateListener = new FirebaseAuth.AuthStateListener() {
+            @Override
+            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+                FirebaseUser user = firebaseAuth.getCurrentUser();
+                if (user != null) {
+                    // User is singed in
+                    Toast.makeText(MainActivity.this, "認証完了。ようこそ、FriendlyChatへ・・・", Toast.LENGTH_SHORT).show();
+                } else {
+                    // User is signed out
+                    // ログイン Activity は AuthUI が生成する。
+                    // https://github.com/firebase/FirebaseUI-Android/blob/master/auth/README.md#sign-in-examples
+                    startActivityForResult(
+                            AuthUI.getInstance()
+                                    .createSignInIntentBuilder()
+                                    // ユーザの信頼性を自動保存するような感じの機能。
+                                    // 通常はデフォルトの true でよいので、あえて定義しない。
+                                    // ここでは、勉強のためfalse で定義している。
+                                    .setIsSmartLockEnabled(false)
+                                    .setProviders(Arrays.asList(
+                                            new AuthUI.IdpConfig.Builder(AuthUI.EMAIL_PROVIDER).build(),
+                                            new AuthUI.IdpConfig.Builder(AuthUI.GOOGLE_PROVIDER).build()))
+                                    .build(),
+                            // Request Code
+                            RC_SIGN_IN);
+                }
+            }
+        };
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mFirebaseAuth.addAuthStateListener(mAuthStateListener);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // 特に複数の Activity を扱う場合は、Listener のアタッチデタッチは重要
+        if (mAuthStateListener != null) {
+            mFirebaseAuth.removeAuthStateListener(mAuthStateListener);
+        }
     }
 
     @Override
@@ -171,7 +226,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Send button sends a message and clears the EditText
     @OnClick(R.id.sendButton)
-    void onSendClicked(){
+    void onSendClicked() {
 
         // Model のデータをEditText から取得
         FriendlyMessage friendlyMessage =
